@@ -33,11 +33,11 @@ CCM::usage="CCM \:7535\:8377\:5171\:8f6d\:77e9\:9635 C=i \!\(\*SuperscriptBox[\(
 SuperT::usage="SuperT[A] \:77e9\:9635\:8f6c\:7f6e\:7b26\:53f7 \!\(\*SuperscriptBox[\(A\), \(T\)]\)";
 MTranspose::usage="\:77e9\:9635\:8f6c\:7f6e\:8fd0\:7b97";
 
-tr::usage="\:77e9\:9635\:6c42\:8ff9\:7b97\:7b26,\:642d\:914dTrSimplify\:4f7f\:7528";
+DTrace::usage="\:77e9\:9635\:6c42\:8ff9\:7b97\:7b26,\:642d\:914dTrSimplify\:4f7f\:7528";
 GammaQ::usage="GammaQ[f] \:5982\:679cf\:4e0d\:5305\:542b\:72c4\:62c9\:514b\:77e9\:9635\:5219\:7ed9\:51faTrue\:ff0c\:5426\:5219\:7ed9\:51faFalse";
 RotateTrace::usage="\:77e9\:9635\:6c42\:8ff9\:8f6e\:6362";
 DotSimplify::usage="\:77e9\:9635\:4e58\:6cd5\:5316\:7b80";
-TrSimplify::usage="TrSimplify[tr[DGamma[a].DGamma[b]]]\:72c4\:62c9\:514b\:77e9\:9635\:6c42\:8ff9";
+TrSimplify::usage="TrSimplify[DTrace[DGamma[a].DGamma[b]]]\:72c4\:62c9\:514b\:77e9\:9635\:6c42\:8ff9";
 
 MatrixElement::usage="MatrixElement[A,{a,b}] \:5e26\:6307\:6807\:7684\:77e9\:9635 \!\(\*SubscriptBox[\(A\), \(ab\)]\)";
 MContract::usage="\:77e9\:9635\:6307\:6807\:6536\:7f29";
@@ -200,7 +200,7 @@ Begin["`Private`"]
 (*\:72c4\:62c9\:514b\:77e9\:9635\:4ee3\:6570*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*\:7b26\:53f7\:5b9a\:4e49*)
 
 
@@ -211,6 +211,12 @@ SuperscriptBox["\[Gamma]",a]
 Format[DGamma5,TraditionalForm]:=
  DisplayForm[ 
 SuperscriptBox["\[Gamma]",5]
+];
+
+
+Format[DTrace,TraditionalForm]:=
+ DisplayForm[ 
+"tr"
 ];
 
 
@@ -316,49 +322,17 @@ Dot[DGamma5,FSlash[p_]]:>-FSlash[p] . DGamma5
 
 
 RotateTrace[f_]:=f/.{
-tr[HoldPattern[Dot[A__]]]:>Module[
+DTrace[HoldPattern[Dot[A__]]]:>Module[
 {N,B},
 N=Ordering[{A}][[1]]-1;
 B=RotateLeft[{A},N];
-tr[Dot@@B]
+DTrace[Dot@@B]
 ]};
 
 
-DTrace[x_?GammaQ]:=4*x;
-DTrace[x_?GammaQ*A_]:=x*DTrace[A];
-DTrace[x_+y_]:=DTrace[x]+DTrace[y];
-
-DTrace[DGamma[A_List]]:=0/;OddQ[Length[A]];
-DTrace[DGamma[{x_,y_}]]:=4*MTensor[x,y];
-DTrace[DGamma[A_List]]:=Module[
-{N,T,i},
-N=Length[A];
-T[j_]:=Delete[A, {{1},{j}}];
-Sum[(-1)^i*MTensor[A[[1]],A[[i]]]*DTrace[DGamma[T[i]]],{i,2,N}]
-]/;EvenQ[Length[A]]&&Length[A]>2;
-
-DTrace[DGamma5]:=0;
-DTrace[DGamma[A_List] . DGamma5]:=0/;OddQ[Length[A]];
-DTrace[DGamma[{x_,y_}] . DGamma5]:=0;
-DTrace[DGamma[{a_,b_,c_,d_}] . DGamma5]:=-4*I*Epsilon4[a,b,c,d];
-DTrace[DGamma[A_List] . DGamma5]:=
-Module[
-{A123,A12,A23,A13,b,B},
-A13=Delete[A,{{1},{3}}];
-A12=Drop[A,{1,2}];
-A23=Drop[A,{2,3}];
-A123=Drop[A,3];
-B=Flatten[{b,A123}];
-
-MTensor[A[[1]],A[[2]]]*DTrace[DGamma[A12] . DGamma5]-MTensor[A[[1]],A[[3]]]*DTrace[DGamma[A13] . DGamma5]+
-MTensor[A[[3]],A[[2]]]*DTrace[DGamma[A23] . DGamma5]-I*Epsilon4[A[[1]],A[[2]],A[[3]],b]*DTrace[DGamma[B]]
-]/;EvenQ[Length[A]]&&Length[A]>4;
-
-
 TrSimplify[f_]:=Module[
-{F,G,H,J,K,L},
-F=f/.{tr->DTrace};
-G=DotSimplify[F];
+{G,H,J,K,L},
+G=DotSimplify[f];
 H=G/.{DTrace[Dot[A__] . DGamma5]:>Module[
 {N,B},
 N=Ordering[{A}][[1]]-1;
@@ -366,8 +340,36 @@ B=RotateLeft[{A},N];
 (-1)^N*DTrace[Dot@@B . DGamma5]
 ]};
 J=DotSimplify[H/.{FSlash->UCFSlash}];
-K=J/.{DGamma[a_]:>DGamma[{a}]}//.{DGamma[a_] . DGamma[b_]:>DGamma[Join[a,b]]};
-K//LContract
+K=J/.{DGamma[a_]:>DGamma[{a}]}//.{Dot[DGamma[a_],DGamma[b_]]:>DGamma[Join[a,b]]};
+L=K//.{
+DTrace[x_?GammaQ]:>4*x,
+DTrace[x_?GammaQ*A_]:>x*DTrace[A],
+DTrace[x_+y_]:>DTrace[x]+DTrace[y],
+
+DTrace[DGamma[A_List]]:>0/;OddQ[Length[A]],
+DTrace[DGamma[{x_,y_}]]:>4*MTensor[x,y],
+DTrace[DGamma[A_List]]:>Module[
+{N,T,i},
+N=Length[A];
+T[j_]:=Delete[A, {{1},{j}}];
+Sum[(-1)^i*MTensor[A[[1]],A[[i]]]*DTrace[DGamma[T[i]]],{i,2,N}]
+]/;EvenQ[Length[A]]&&Length[A]>2,
+
+DTrace[DGamma5]:>0,
+DTrace[Dot[DGamma[A_List],DGamma5]]:>0/;OddQ[Length[A]],
+DTrace[DGamma[{x_,y_}] . DGamma5]:>0,
+DTrace[DGamma[{a_,b_,c_,d_}] . DGamma5]:>-4*I*Epsilon4[a,b,c,d],
+DTrace[DGamma[A_List] . DGamma5]:>
+Module[
+{A1,A2,A3,A12,A23,A13,A123,b,B},
+A1=A[[1]];A2=A[[2]];A3=A[[3]];
+A13=Delete[A,{{1},{3}}];A12=Drop[A,{1,2}];
+A23=Drop[A,{2,3}];A123=Drop[A,3];B=Flatten[{b,A123}];
+MTensor[A1,A2]*DTrace[DGamma[A12] . DGamma5]-MTensor[A1,A3]*DTrace[DGamma[A13] . DGamma5]+
+MTensor[A3,A2]*DTrace[DGamma[A23] . DGamma5]-I*Epsilon4[A1,A2,A3,b]*DTrace[DGamma[B]]
+]/;EvenQ[Length[A]]&&Length[A]>4
+};
+L//LContract
 ];
 
 
@@ -377,7 +379,7 @@ MatrixElement[A_,{a_,b_}]*MatrixElement[B_,{b_,c_}]:>MatrixElement[A . B,{a,c}],
 MatrixElement[C_,{a_}]*MatrixElement[A_,{a_,b_}]*MatrixElement[B_,{b_}]:>C . A . B,
 MatrixElement[A_,{a_,b_}]*MatrixElement[B_,{a_,c_}]:>MatrixElement[SuperT[A] . B,{b,c}],
 MatrixElement[A_,{a_,b_}]*MatrixElement[B_,{c_,b_}]:>MatrixElement[A . SuperT[B],{a,c}],
-MatrixElement[A_,{a_,a_}]:>tr[A]
+MatrixElement[A_,{a_,a_}]:>DTrace[A]
 };
 
 
@@ -393,7 +395,7 @@ Dot[A__,DSpinor[u_,k__]]*Dot[DSpinor[OverBar[u_],k__],B__]
 :>Dot[A,DSpinor[u,k],DSpinor[OverBar[u],k],B]
 }/.{
 Dot[DSpinor[OverBar[u_],k__],B__,DSpinor[u_,k__]]
-:>tr[Dot[B,DSpinor[u,k],DSpinor[OverBar[u],k]]]};
+:>DTrace[Dot[B,DSpinor[u,k],DSpinor[OverBar[u],k]]]};
 
 
 PolarSum[f_]:=f//.{
@@ -421,7 +423,7 @@ SuperT[CCM]->-CCM
 (*\:5f20\:91cf\:4ee3\:6570*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*\:7b26\:53f7\:5b9a\:4e49*)
 
 
