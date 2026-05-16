@@ -174,7 +174,7 @@ ShiftInt::usage="\:79ef\:5206\:5e73\:79fb";
 
 SParameterize::usage="SParameterize[f] \:5bf9\:8868\:8fbe\:5f0ff\:8fdb\:884c\:65bd\:6e29\:683c\:53c2\:6570\:5316";
 FParameterize::usage="FParameterize[f] \:5bf9\:8868\:8fbe\:5f0ff\:8fdb\:884c\:8d39\:66fc\:53c2\:6570\:5316";
-FourierExpand::usage="\:5085\:91cc\:53f6\:5c55\:5f00";
+FourierExpand::usage="\:5750\:6807\:7a7a\:95f4\:4f20\:64ad\:5b50\:7684\:5085\:91cc\:53f6\:5c55\:5f00";
 PropagatorExpand::usage="\:52a8\:91cf\:7a7a\:95f4\:4f20\:64ad\:5b50\:5c55\:5f00";
 
 Swap::usage="Swap[f,{x,y}] \:628a\:8868\:8fbe\:5f0ff\:7684\:53d8\:91cf x,y \:4e92\:6362
@@ -593,67 +593,40 @@ G/.{T->Times}
 
 IndexCounter=0;
 UniqueIndex[a_]:=Module[
-{F,B,Id,C},
-IndexCounter=IndexCounter+1;
-Id=ToString[IndexCounter];
-B=ToExpression[ToString[a]<>Id];
-F[x_]:=ToString[x]<>Id;
-C=ToExpression[F/@a];
-If[ListQ[a],C,B]
+ {id,item},
+ IndexCounter=IndexCounter+1;
+  id=ToString[IndexCounter];
+  If[ListQ[a],
+   Table[Symbol[ToString[item]<>id],{item,a}],
+ Symbol[ToString[a]<>id]
+  ]
 ];
-UniqueIndex[x_,n_Integer]:=UniqueIndex/@Table[x,n]
+
+
+UniqueIndex[x_,n_Integer]:=UniqueIndex/@Table[x,n];
 
 
 SymbolRange[k_,{i_,j_}]:=Table[Symbol[ToString[k]<>ToString[n]],{n,i,j}];
 
 
-CheckDummyIndices[f_/;Head[Expand[f]]===Plus]:=Module[
-{F,IndexList},
-F=List@@Expand[f];
-IndexList=CheckDummyIndices/@F;
-DeleteDuplicates[IndexList]
-];
-
-
-CheckDummyIndices[f_/;Head[Expand[f]]=!=Plus]:=Module[
-{rule,IntIndex,AllIndex,DummyIndex},
+CheckDummyIndices[f_] := Module[
+{expanded=Expand[f],rule,IntIndex,AllIndex,DummyIndex},
 rule=Alternatives[
-MatrixElement[_,a_],
-DGamma[a_],
-DField[_,a_,_],
-QField[_,a_,_],
-BField[_,a_,_],
-GField[a_,_],
-PolarVector[_,a_,_],
-UTensor[_,a_,_],
-SUTensor[_,a_,_],
-AUTensor[_,a_,_],
-SU3T[a_]
+MatrixElement[_,a_],DGamma[a_],DField[_,a_,_],QField[_,a_,_],
+BField[_,a_,_],GField[a_,_],PolarVector[_,a_,_],UTensor[_,a_,_],
+SUTensor[_,a_,_],AUTensor[_,a_,_],SU3T[a_]
 ]:>a;
-IntIndex=Cases[f,Int[a_,_],All]//Flatten;
+IntIndex=Cases[f,Int[a_,_]:>a,All]//Flatten;
 AllIndex=Cases[f,rule,All]//Flatten;
 DummyIndex=Cases[Gather[AllIndex],{x_,x_}:>x];
+  If[MatchQ[expanded,_Plus],
+   DeleteDuplicates[CheckDummyIndices/@(List@@expanded)],
 If[
 Max[Counts[AllIndex]]>2,
 Message[General::DummyIndex];Return[$Failed], 
 Join[DummyIndex,IntIndex]
  ]
- ];
-
-
-RenameDummyIndices[f_/;Head[Expand[f]]===Plus]:=Module[
-{F},
- F=List@@Expand[f];
-Plus@@RenameDummyIndices/@F
-];
-
-
-RenameDummyIndices[f_/;Head[Expand[f]]=!=Plus]:=Module[
-{IndexList,FixedIndex,N},
-  IndexList=CheckDummyIndices[f];
-   N=Length[IndexList];
-  FixedIndex=SymbolRange["RN",{1,N}];
-f/.Thread[IndexList->FixedIndex]
+  ]
 ];
 
 
@@ -662,6 +635,20 @@ RefreshDummyIndices[f_]:=Module[
   IndexList=CheckDummyIndices[f]//Flatten;
   FreshIndex=UniqueIndex[IndexList];
    f//.Thread[IndexList->FreshIndex]
+];
+
+
+RenameDummyIndices[f_]:=Module[{expanded=Expand[f]},
+  If[
+    MatchQ[expanded,_Plus], 
+    RenameDummyIndices/@expanded,
+    Module[{indexList,FixedIndex,N},
+      indexList = CheckDummyIndices[f];
+      N= Length[indexList];
+      FixedIndex=SymbolRange["RN",{1,N}];
+      f/.Thread[indexList->FixedIndex]
+    ]
+  ]
 ];
 
 
